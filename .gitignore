@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Data (large; reproducible from download scripts)
+data/raw/
+data/prepared/
+
+# Training artifacts
+train/autoresearch/
+train/checkpoints/
+results/*.tsv
+results/*.npz
+results/*.png
+
+# Tokenizer artifacts (reproducible)
+tokenizer/english-bpe/
+tokenizer/esperanto-bpe/
+tokenizer/efficiency_report.json
+
+.DS_Store
+.env
