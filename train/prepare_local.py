@@ -40,6 +40,7 @@ DOCS_PER_SHARD = 50_000
 CORPUS_FILES = {
     "english": "simplewiki-articles.jsonl",
     "esperanto": "eowiki-articles.jsonl",
+    "loga": "loga-articles.jsonl",
 }
 
 
@@ -140,7 +141,7 @@ def count_tokens(enc, docs, label=""):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--corpus", required=True, choices=["english", "esperanto"])
+    p.add_argument("--corpus", required=True, choices=["english", "esperanto", "loga"])
     p.add_argument("--data-dir", default=None)
     p.add_argument("--clean", action="store_true", help="Wipe cache before populating")
     args = p.parse_args()
