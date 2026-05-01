@@ -46,6 +46,7 @@ out_sentences = os.path.join(output_dir, "eowiki-sentences.txt")
 NS = "http://www.mediawiki.org/xml/export-0.11/"
 
 def clean_wikitext(text: str) -> str:
+    import html as html_mod
     for _ in range(30):
         new_text = re.sub(r'\{\{[^{}]*\}\}', '', text)
         if new_text == text:
@@ -53,7 +54,14 @@ def clean_wikitext(text: str) -> str:
         text = new_text
     text = re.sub(r'\{\{[^}]*\}\}', '', text)
     text = re.sub(r'\{\{.*?\}\}', '', text, flags=re.DOTALL)
+    # Remove tables — iterative for nested
+    for _ in range(5):
+        new_text = re.sub(r'\{\|[^{}]*?\|\}', '', text, flags=re.DOTALL)
+        if new_text == text:
+            break
+        text = new_text
     text = re.sub(r'\{\|.*?\|\}', '', text, flags=re.DOTALL)
+    text = re.sub(r'^[|!].*$', '', text, flags=re.MULTILINE)
     # Esperanto-language namespace prefixes for File/Image/Category
     text = re.sub(
         r'\[\[(?:File|Image|Category|Dosiero|Bildo|Kategorio):[^\]]*\]\]',
@@ -62,11 +70,18 @@ def clean_wikitext(text: str) -> str:
     text = re.sub(r'\[\[(?:[^|\]]*\|)?([^\]]*)\]\]', r'\1', text)
     text = re.sub(r'\[https?://\S+\s+([^\]]+)\]', r'\1', text)
     text = re.sub(r'\[https?://\S+\]', '', text)
-    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'<[^>]+/?>', '', text, flags=re.DOTALL)
+    text = html_mod.unescape(text)
+    text = re.sub(r'\b(?:bgcolor|class|style|align|valign|width|height|colspan|rowspan|cellpadding|cellspacing|border)\s*=\s*"[^"]*"', '', text)
+    text = re.sub(r'\b(?:bgcolor|class|style|align|valign|width|height|colspan|rowspan|cellpadding|cellspacing|border)\s*=\s*\S+', '', text)
+    text = re.sub(r'#[0-9a-fA-F]{6}\b', '', text)
+    text = re.sub(r'#[0-9a-fA-F]{3}\b', '', text)
     text = re.sub(r'={2,6}([^=]+)={2,6}', r'\1', text)
     text = re.sub(r"'{2,3}", '', text)
+    text = re.sub(r'__[A-Z]+__', '', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
     text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'^\s*[|!:{}\[\]]\s*$', '', text, flags=re.MULTILINE)
     return text.strip()
 
 def is_valid_article(title: str, text: str) -> bool:

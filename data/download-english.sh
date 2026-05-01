@@ -49,6 +49,7 @@ NS = "http://www.mediawiki.org/xml/export-0.11/"
 
 def clean_wikitext(text: str) -> str:
     """Remove wiki markup to get plain text."""
+    import html as html_mod
     # Remove templates {{...}} iteratively; cap passes to avoid hang on malformed markup
     for _ in range(30):
         new_text = re.sub(r'\{\{[^{}]*\}\}', '', text)
@@ -58,8 +59,16 @@ def clean_wikitext(text: str) -> str:
     # Remove any remaining unresolved {{ }} with a greedy sweep
     text = re.sub(r'\{\{[^}]*\}\}', '', text)
     text = re.sub(r'\{\{.*?\}\}', '', text, flags=re.DOTALL)
-    # Remove tables {|...|}
+    # Remove tables {|...|} — use greedy match to handle nested/malformed tables
+    for _ in range(5):
+        new_text = re.sub(r'\{\|[^{}]*?\|\}', '', text, flags=re.DOTALL)
+        if new_text == text:
+            break
+        text = new_text
+    # Fallback: remove any remaining table fragments
     text = re.sub(r'\{\|.*?\|\}', '', text, flags=re.DOTALL)
+    # Remove lines that look like table rows (start with | or !)
+    text = re.sub(r'^[|!].*$', '', text, flags=re.MULTILINE)
     # Remove file/image links
     text = re.sub(r'\[\[(?:File|Image|Category):[^\]]*\]\]', '', text, flags=re.IGNORECASE)
     # Unwrap [[link|display]] → display; [[link]] → link
@@ -67,15 +76,27 @@ def clean_wikitext(text: str) -> str:
     # Remove external links [url display] → display
     text = re.sub(r'\[https?://\S+\s+([^\]]+)\]', r'\1', text)
     text = re.sub(r'\[https?://\S+\]', '', text)
-    # Remove HTML tags
-    text = re.sub(r'<[^>]+>', '', text)
+    # Remove HTML tags (including self-closing and multi-line)
+    text = re.sub(r'<[^>]+/?>', '', text, flags=re.DOTALL)
+    # Decode HTML entities: &nbsp; → space, &ndash; → -, &amp; → &, etc.
+    text = html_mod.unescape(text)
+    # Remove residual HTML attributes that leaked (bgcolor, class, style, align, etc.)
+    text = re.sub(r'\b(?:bgcolor|class|style|align|valign|width|height|colspan|rowspan|cellpadding|cellspacing|border)\s*=\s*"[^"]*"', '', text)
+    text = re.sub(r'\b(?:bgcolor|class|style|align|valign|width|height|colspan|rowspan|cellpadding|cellspacing|border)\s*=\s*\S+', '', text)
+    # Remove hex color codes (#fefefe, #000000, etc.)
+    text = re.sub(r'#[0-9a-fA-F]{6}\b', '', text)
+    text = re.sub(r'#[0-9a-fA-F]{3}\b', '', text)
     # Remove headings markup
     text = re.sub(r'={2,6}([^=]+)={2,6}', r'\1', text)
     # Remove bold/italic
     text = re.sub(r"'{2,3}", '', text)
+    # Remove magic words / parser functions
+    text = re.sub(r'__[A-Z]+__', '', text)
     # Normalize whitespace
     text = re.sub(r'\n{3,}', '\n\n', text)
     text = re.sub(r'[ \t]+', ' ', text)
+    # Remove lines that are just punctuation/whitespace fragments
+    text = re.sub(r'^\s*[|!:{}\[\]]\s*$', '', text, flags=re.MULTILINE)
     return text.strip()
 
 def is_valid_article(title: str, text: str) -> bool:
